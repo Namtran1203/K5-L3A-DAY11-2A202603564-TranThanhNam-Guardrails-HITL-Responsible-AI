@@ -4,8 +4,8 @@ Lab 11 — Configuration, provider selection, API keys.
 Hai tầng model (không trộn):
 
   Blue Team (CP2–CP3, guardrails / pipeline / protected agent)
-    → CỐ ĐỊNH OpenRouter ``liquid/lfm-2.5-2.6b:free``
-       https://openrouter.ai/liquid/lfm-2.5-2.6b:free
+    → CỐ ĐỊNH OpenRouter ``liquid/lfm-3-1.7b:free``
+       https://openrouter.ai/liquid/lfm-3-1.7b:free
     → Cần ``OPENROUTER_API_KEY``
 
   Red Team (CP4)
@@ -36,7 +36,7 @@ PROVIDER_OPENROUTER = "openrouter"
 
 # --- Blue Team (LOCKED) ---
 BLUE_PROVIDER = PROVIDER_OPENROUTER
-BLUE_MODEL = "liquid/lfm-2.5-2.6b:free"
+BLUE_MODEL = "liquid/lfm-3-1.7b:free"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_OPENROUTER_MODEL = BLUE_MODEL  # alias
 
@@ -139,11 +139,15 @@ def get_red_provider() -> str:
     ).strip().lower()
     if raw in {"gemini", "google", "adk"}:
         return PROVIDER_GEMINI
+    if raw == PROVIDER_OPENROUTER:
+        return PROVIDER_OPENROUTER
     return PROVIDER_OPENAI
 
 
 def get_red_model() -> str:
     """Model Red Team từ .env (cùng cho default + advance)."""
+    if get_red_provider() == PROVIDER_OPENROUTER:
+        return os.environ.get("OPENROUTER_RED_MODEL", "liquid/lfm-3-1.7b:free").strip() or "liquid/lfm-3-1.7b:free"
     if get_red_provider() == PROVIDER_GEMINI:
         return (
             os.environ.get("GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip()
@@ -170,6 +174,8 @@ def get_openai_api_key() -> str:
 
 
 def red_openai_client_kwargs() -> dict:
+    if get_red_provider() == PROVIDER_OPENROUTER:
+        return blue_client_kwargs()
     return {"api_key": get_openai_api_key() or None}
 
 
@@ -180,7 +186,7 @@ def red_provider_label(tier: str = "advance") -> str:
 
 
 def red_uses_openai_sdk() -> bool:
-    return get_red_provider() == PROVIDER_OPENAI
+    return get_red_provider() in {PROVIDER_OPENAI, PROVIDER_OPENROUTER}
 
 
 def red_uses_gemini() -> bool:
@@ -249,6 +255,8 @@ def setup_api_key():
             os.environ["GOOGLE_API_KEY"] = input("Enter Google API Key (Red): ").strip()
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
         print(f"Red / Red Advance  — gemini:{model}")
+    elif red == PROVIDER_OPENROUTER:
+        print(f"Red / Red Advance  — openrouter:{model} (experimental; outside the graded provider requirements)")
     else:
         if not get_openai_api_key():
             os.environ["OPENAI_API_KEY"] = input("Enter OpenAI API Key (Red): ").strip()
